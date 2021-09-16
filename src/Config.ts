@@ -30,17 +30,23 @@ const WEIGHT_K8S_SERVICE = 3060
 const WEIGHT_K8S_OTHER = 3200
 
 const WEIGHT_PHY_FABRIC = 5010
+const WEIGHT_SWITCH = 5015
+const WEIGHT_SWITCH_PORTS = 5018
 const WEIGHT_PHY_HOST = 5020
-const WEIGHT_PHY_BRIDGES = 5030
+const WEIGHT_PHY_NIC = 5030
+const WEIGHT_BRIDGES = 5035
+const WEIGHT_VLAN = 5040
 const WEIGHT_PHY_NET = 5050
 const WEIGHT_PHY_PORTS = 5060
 
 const WEIGHT_VIRT_NAMESPACE = 7010
-const WEIGHT_VIRT_VMS = 7020
 const WEIGHT_VIRT_CONTAINERS = 7030
 const WEIGHT_VIRT_BRIDGES = 7040
 const WEIGHT_VIRT_NET = 7050
-const WEIGHT_VIRT_PORTS = 7060
+const WEIGHT_SYSTEM_VMS = 7060
+const WEIGHT_VIRT_ROUTERS = 7070
+const WEIGHT_VIRT_VMS = 7080
+const WEIGHT_VIRT_PORTS = 7090
 
 const WEIGHT_NONE = 20000
 
@@ -451,7 +457,6 @@ class DefaultConfig {
                         for (let name of result) {
                             filters.push(nf(name, "namespace", "kubernetes", 10))
                         }
-
                         resolve(filters)
                     }
                 })
@@ -473,11 +478,15 @@ class DefaultConfig {
             }
         }
     }
-
     private newAttrs(node: Node): NodeAttrs {
         var name = node.data.Name
+        var ifName = node.data.IfName
         if (name.length > 24) {
             name = node.data.Name.substring(0, 24) + "."
+        }
+        // You can edid it. To change name of node
+        if (ifName != "" && ifName !== undefined && node.data.Type == "tuntap") {
+            name = ifName + " / " + name
         }
 
         var attrs = {
@@ -605,28 +614,32 @@ class DefaultConfig {
 
     private nodeAttrsInfra(node: Node): NodeAttrs {
         var attrs = this.newAttrs(node)
-
         switch (node.data.Type) {
             case "host":
                 attrs.icon = "\uf109"
                 attrs.weight = WEIGHT_PHY_HOST
                 break
             case "switch":
+                attrs.weight = WEIGHT_SWITCH
+                break
             case "bridge":
                 attrs.icon = "\uf6ff"
-                attrs.weight = WEIGHT_PHY_BRIDGES
+                attrs.weight = WEIGHT_BRIDGES
                 break
             case "patch":
             case "port":
             case "switchport":
                 attrs.icon = "\uf0e8"
-                attrs.weight = WEIGHT_PHY_PORTS
+                attrs.weight = WEIGHT_SWITCH_PORTS
                 break
             case "erspan":
                 attrs.icon = "\uf1e0"
                 attrs.weight = WEIGHT_PHY_PORTS
                 break
             case "device":
+                attrs.icon = "\uf796"
+                attrs.weight = WEIGHT_PHY_NIC
+                break
             case "internal":
             case "interface":
             case "tun":
@@ -666,13 +679,25 @@ class DefaultConfig {
                 attrs.icon = "\uf49e"
                 attrs.weight = WEIGHT_VIRT_CONTAINERS
                 break
+            case "vlan":
+                attrs.icon = "\uf6ff"
+                attrs.weight = WEIGHT_VLAN
+                break    
             default:
                 attrs.icon = "\uf796"
                 attrs.weight = WEIGHT_NONE
         }
 
-        if (node.data.IPV4 && node.data.IPV4.length) {
+        if (node.data.IPV4 && node.data.IPV4.length && node.data.Type !== "bridge") {
             attrs.weight = WEIGHT_PHY_NET
+        }
+
+        if (node.data.IPV4 && node.data.IPV4.length && node.data.Type === "bridge") {
+            attrs.weight = WEIGHT_BRIDGES
+        }
+
+        if (!node.data.IPV4 && node.data.Type === "bridge") {
+            attrs.weight = WEIGHT_VIRT_BRIDGES
         }
 
         if (node.data.Probe === "fabric") {
@@ -681,6 +706,18 @@ class DefaultConfig {
 
         if (node.data.OfPort) {
             attrs.weight = WEIGHT_VIRT_PORTS
+        }
+
+        if (node.data.Name === "lo") {
+            attrs.weight = WEIGHT_PHY_NIC
+        }
+
+        var regexpVirtRouter: RegExp = /^r-/
+        var regexpSystemVm: RegExp = /^[s-v-]/
+        if (regexpVirtRouter.test(node.data.Name)) {
+            attrs.weight = WEIGHT_VIRT_ROUTERS
+        }else if (regexpSystemVm.test(node.data.Name) || node.data.Name === "ccvm" || node.data.Name === "scvm") {
+            attrs.weight = WEIGHT_SYSTEM_VMS
         }
 
         var virt = ["tap", "veth", "tun", "openvswitch"]
@@ -829,6 +866,22 @@ class DefaultConfig {
             return
         }
 
+        var regexpVirtRouter: RegExp = /^r-/
+        var regexpSystemVm: RegExp = /^[s-]^[v-]/
+        var regexpVirtBridge: RegExp = /^brenp/
+
+        if (regexpVirtRouter.test(node.data.Name)) {
+            nodeType = "virt-router"
+        }else if (regexpSystemVm.test(node.data.Name) || node.data.Name === "ccvm" || node.data.Name === "scvm") {
+            nodeType = "system-vm"
+        }
+
+        if (regexpVirtBridge.test(node.data.Name) && node.data.Type === "bridge") {
+            nodeType = "virt-bridge"
+        }else if (node.data.Type === "bridge"){
+            nodeType = "host-bridge"
+        }
+        
         return nodeType + "(s)"
     }
 
@@ -844,6 +897,9 @@ class DefaultConfig {
         wt.set(WEIGHT_K8S_SERVICE, "k8s-services")
         wt.set(WEIGHT_K8S_OTHER, "k8s-more")
 
+        wt.set(WEIGHT_VLAN, "vlans")
+        wt.set(WEIGHT_SYSTEM_VMS, "system-VMs")
+        wt.set(WEIGHT_VIRT_ROUTERS, "virt-Routers")
         wt.set(WEIGHT_VIRT_VMS, "virt-VMs")
         wt.set(WEIGHT_VIRT_CONTAINERS, "virt-containers")
         wt.set(WEIGHT_VIRT_BRIDGES, "virt-bridges")
@@ -852,8 +908,11 @@ class DefaultConfig {
         wt.set(WEIGHT_VIRT_PORTS, "virt-ports")
 
         wt.set(WEIGHT_PHY_FABRIC, "phy-fabric")
+        wt.set(WEIGHT_SWITCH, "phy-switch")
+        wt.set(WEIGHT_SWITCH_PORTS, "phy-switch-ports")
         wt.set(WEIGHT_PHY_HOST, "phy-hosts")
-        wt.set(WEIGHT_PHY_BRIDGES, "phy-bridges")
+        wt.set(WEIGHT_PHY_NIC, "phy-nics")
+        wt.set(WEIGHT_BRIDGES, "host-bridges")
         wt.set(WEIGHT_PHY_NET, "phy-net")
         wt.set(WEIGHT_PHY_PORTS, "phy-ports")
 
@@ -890,8 +949,12 @@ class DefaultConfig {
                     switch (data.Type) {
                         case "host":
                             return ['Name']
+                        case "switch":
+                            return ['Name','Type', 'LLDP','Probe']    
+                        case "switchport":
+                            return ['Name','Type', 'LLDP','RemoteSysName']   
                         default:
-                            return ['Name', 'Type', 'MAC', 'Driver', 'State']
+                            return ['Name', 'Type', 'MAC', 'Driver', 'State', 'Libvirt', 'IfName' ,'IfAddr']
                     }
                 }
             },
@@ -1084,7 +1147,7 @@ class DefaultConfig {
     }
 
     isHierarchyLink(data: any): boolean {
-        return data?.RelationType === "ownership"
+        return data?.RelationType === "ownership" || data?.RelationType === "vownership"
     }
 
     linkDataFields(): Array<LinkDataField> {

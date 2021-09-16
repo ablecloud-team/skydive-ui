@@ -354,7 +354,6 @@ class App extends React.Component<Props, State> {
     if (!this.tc) {
       return false
     }
-
     if (!node.Metadata) {
       console.warn("no metadata found: " + node)
       return false
@@ -1172,14 +1171,14 @@ class App extends React.Component<Props, State> {
             <Typography>Unselect all</Typography>
           </MenuItem>
         </Menu>
-        <IconButton
+        {/* <IconButton
           aria-label="account of current user"
           aria-controls="menu-profile"
           aria-haspopup="true"
           onClick={this.openMenu.bind(this, "profile")}
           color="inherit">
           <AccountCircle />
-        </IconButton>
+        </IconButton> */}
         <Menu
           id="menu-profile"
           anchorEl={this.state.anchorEl.get("profile")}
@@ -1262,11 +1261,11 @@ class App extends React.Component<Props, State> {
           </div>
           <Divider />
           <List><MenuListItems /></List>
-          <Divider />
+          {/* <Divider /> */}
           <List><HelpListItems onClick={this.openAboutDialog.bind(this)} /></List>
         </Drawer>
         <AboutDialog open={this.state.isAboutOpen} onClose={this.closeAboutDialog.bind(this)}
-          appName="Skydive" appVersion={this.state.appVersion} uiVersion={packageJson.version} />
+          appName="ABLESTACK SKYDIVE" appVersion="1.00" uiVersion="1.00"/>
         <main className={classes.content}>
           <Container maxWidth="xl" className={classes.container}>
             <Topology className={classes.topology} ref={node => this.tc = node}
