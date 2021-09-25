@@ -713,10 +713,10 @@ class DefaultConfig {
         }
 
         var regexpVirtRouter: RegExp = /^r-/
-        var regexpSystemVm: RegExp = /^[s-v-]/
+        var regexpSystemVm: RegExp = /(^s-)|(^v-)/
         if (regexpVirtRouter.test(node.data.Name)) {
             attrs.weight = WEIGHT_VIRT_ROUTERS
-        }else if (regexpSystemVm.test(node.data.Name) || node.data.Name === "ccvm" || node.data.Name === "scvm") {
+        }else if (regexpSystemVm.test(node.data.Name) || node.data.Name === "ccvm" || node.data.Name === "scvm" && node.data.Type === "libvirt") {
             attrs.weight = WEIGHT_SYSTEM_VMS
         }
 
