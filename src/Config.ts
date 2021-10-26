@@ -688,10 +688,6 @@ class DefaultConfig {
                 attrs.weight = WEIGHT_NONE
         }
 
-        if (node.data.IPV4 && node.data.IPV4.length && node.data.Type !== "bridge") {
-            attrs.weight = WEIGHT_PHY_NET
-        }
-
         if (node.data.IPV4 && node.data.IPV4.length && node.data.Type === "bridge") {
             attrs.weight = WEIGHT_BRIDGES
         }
