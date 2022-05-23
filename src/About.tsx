@@ -45,7 +45,7 @@ export default function AboutDialog(props: AboutProps) {
                 <div style={{ minWidth: 400 }}>
                     {appVersion &&
                         <DialogContentText>
-                            {appName} version : {appVersion}
+                            {appName} version : 2.0.0
                         </DialogContentText>
                     }
                     {/* <DialogContentText>
